@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebXR VRつみきゲーム</title>
+    <title>WebXR MRつみきゲーム</title>
     <style>
         body {
             margin: 0;
@@ -21,11 +21,12 @@
         top: 20px;
         left: 20px;
         z-index: 100;
-        background: rgba(0, 0, 0, 0.8);
+        background: rgba(0, 0, 0, 0.9);
         padding: 20px;
         border-radius: 10px;
-        font-size: 14px;
-        max-width: 300px;
+        font-size: 16px;
+        max-width: 90vw;
+        word-wrap: break-word;
     }
 
     #startButton {
@@ -56,9 +57,11 @@
 
     .status {
         margin: 10px 0;
-        padding: 10px;
+        padding: 15px;
         border-radius: 5px;
         background: rgba(255, 255, 255, 0.1);
+        font-size: 14px;
+        line-height: 1.4;
     }
 
     .error {
@@ -92,16 +95,17 @@
 </head>
 <body>
     <div id="info">
-        <h2>WebXR VRつみきゲーム</h2>
-        <button id="startButton">VRセッション開始</button>
-        <div id="status" class="status">VRデバイスを確認中...</div>
+        <h2>WebXR MRつみきゲーム</h2>
+        <button id="startButton">MRセッション開始</button>
+        <button id="debugButton" style="background: #666; margin-top: 10px;">📱 スマホデバッグ</button>
+        <div id="status" class="status">MRデバイスを確認中...</div>
         <div id="instructions">
-            <strong>操作方法（VRモード）:</strong><br>
+            <strong>操作方法（MRモード）:</strong><br>
             • ハンドトラッキング: つまみ動作でつみきを掴む<br>
             • コントローラー: トリガーボタンで選択<br>
             • 音声: "つみき" でつみき生成<br>
             • 音声: "リセット" でリセット<br>
-            • VR空間でつみきタワーを作ろう！
+            • 現実の机や床に配置できます
         </div>
     </div>
 
@@ -194,40 +198,41 @@
         }
         
         async checkXRSupport() {
+            let debugInfo = '';
+            
             if ('xr' in navigator) {
                 try {
-                    console.log('WebXR API検出中...');
-                    const isSupported = await navigator.xr.isSessionSupported('immersive-vr');
+                    debugInfo += 'WebXR API検出中...\n';
+                    const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
                     this.isXRSupported = isSupported;
                     
-                    console.log('WebXR VRサポート:', isSupported);
+                    debugInfo += `WebXR VRサポート: ${isSupported}\n`;
                     
                     if (isSupported) {
-                        document.getElementById('status').textContent = 'VR対応デバイスが検出されました';
+                        document.getElementById('status').innerHTML = 'MR対応デバイスが検出されました<br><small>' + debugInfo + '</small>';
                         document.getElementById('status').className = 'status success';
                         document.getElementById('startButton').disabled = false;
                     } else {
-                        document.getElementById('status').textContent = 'VRモードは利用できません（WebXR VR未対応）';
+                        document.getElementById('status').innerHTML = 'MRモードは利用できません<br><small>' + debugInfo + '</small>';
                         document.getElementById('status').className = 'status error';
                         document.getElementById('startButton').disabled = true;
                     }
                 } catch (error) {
-                    console.error('WebXR確認エラー:', error);
-                    document.getElementById('status').textContent = 'WebXR確認エラー: ' + error.message;
+                    debugInfo += `WebXR確認エラー: ${error.message}\n`;
+                    document.getElementById('status').innerHTML = 'WebXR確認エラー<br><small>' + debugInfo + '</small>';
                     document.getElementById('status').className = 'status error';
                     document.getElementById('startButton').disabled = true;
                 }
             } else {
-                console.log('WebXR API が利用できません');
-                document.getElementById('status').textContent = 'このブラウザはWebXRに対応していません';
+                debugInfo += 'WebXR API が利用できません\n';
+                document.getElementById('status').innerHTML = 'このブラウザはWebXRに対応していません<br><small>' + debugInfo + '</small>';
                 document.getElementById('status').className = 'status error';
                 document.getElementById('startButton').disabled = true;
             }
         }
         
         async startXRSession() {
-            console.log('VRセッション開始を試行中...');
-            console.log('isXRSupported:', this.isXRSupported);
+            let debugInfo = 'VRセッション開始を試行中...\n';
             
             if (!this.isXRSupported) {
                 alert('VRセッションを開始できません。WebXR対応デバイスが必要です。');
@@ -236,9 +241,9 @@
             
             try {
                 document.getElementById('startButton').disabled = true;
-                document.getElementById('status').textContent = 'VRセッションを開始しています...';
+                document.getElementById('status').innerHTML = 'VRセッションを開始しています...<br><small>' + debugInfo + '</small>';
                 
-                console.log('navigator.xr.requestSession実行中...');
+                debugInfo += 'navigator.xr.requestSession実行中...\n';
                 
                 // VR セッションを要求
                 this.xrSession = await navigator.xr.requestSession('immersive-vr', {
@@ -246,7 +251,7 @@
                     optionalFeatures: ['local-floor', 'hand-tracking']
                 });
                 
-                console.log('VRセッション取得成功:', this.xrSession);
+                debugInfo += 'VRセッション取得成功\n';
                 
                 // XRセッション設定
                 await this.renderer.xr.setSession(this.xrSession);
@@ -257,15 +262,15 @@
                 // セッションイベント
                 this.xrSession.addEventListener('end', () => this.onSessionEnd());
                 
-                document.getElementById('status').textContent = 'VRセッション開始！VR空間でつみきゲームを楽しんでください。';
+                document.getElementById('status').innerHTML = 'VRセッション開始！<br><small>VR空間でつみきゲームを楽しんでください</small>';
                 document.getElementById('status').className = 'status success';
                 
                 // 音声認識開始
                 this.startSpeechRecognition();
                 
             } catch (error) {
-                console.error('XRセッション開始エラー:', error);
-                document.getElementById('status').textContent = 'VRセッション開始エラー: ' + error.message;
+                debugInfo += `エラー: ${error.name} - ${error.message}\n`;
+                document.getElementById('status').innerHTML = 'VRセッション開始エラー<br><small>' + debugInfo + '</small>';
                 document.getElementById('status').className = 'status error';
                 document.getElementById('startButton').disabled = false;
             }
@@ -679,12 +684,31 @@
         onSessionEnd() {
             this.xrSession = null;
             document.getElementById('startButton').disabled = false;
-            document.getElementById('status').textContent = 'VRセッションが終了しました';
+            document.getElementById('status').textContent = 'MRセッションが終了しました';
             document.getElementById('status').className = 'status';
             
             if (this.speechRecognition && this.isListening) {
                 this.speechRecognition.stop();
                 this.isListening = false;
+            }
+        }
+        
+        showDebugInfo() {
+            let debugText = '=== WebXR デバッグ情報 ===\n';
+            debugText += `ユーザーエージェント: ${navigator.userAgent}\n\n`;
+            debugText += `WebXR対応: ${'xr' in navigator ? 'あり' : 'なし'}\n`;
+            debugText += `ARサポート: ${this.isXRSupported ? 'あり' : 'なし'}\n\n`;
+            
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                    debugText += `ARセッション対応: ${supported ? 'あり' : 'なし'}\n`;
+                    alert(debugText);
+                }).catch(error => {
+                    debugText += `ARチェックエラー: ${error.message}\n`;
+                    alert(debugText);
+                });
+            } else {
+                alert(debugText);
             }
         }
         
