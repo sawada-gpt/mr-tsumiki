@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebXR MRつみきゲーム</title>
+    <title>WebXR VRつみきゲーム</title>
     <style>
         body {
             margin: 0;
@@ -14,670 +15,675 @@
             overflow: hidden;
         }
 
-        #info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 100;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border-radius: 10px;
-            font-size: 14px;
-            max-width: 300px;
-        }
+```
+    #info {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 20px;
+        border-radius: 10px;
+        font-size: 14px;
+        max-width: 300px;
+    }
 
-        #startButton {
-            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
-            border: none;
-            color: white;
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 10px;
-            cursor: pointer;
-            margin: 10px 0;
-            transition: all 0.3s ease;
-            display: block;
-            width: 100%;
-        }
+    #startButton {
+        background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+        border: none;
+        color: white;
+        padding: 15px 30px;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 10px;
+        cursor: pointer;
+        margin: 10px 0;
+        transition: all 0.3s ease;
+        display: block;
+        width: 100%;
+    }
 
-        #startButton:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
-        }
+    #startButton:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+    }
 
-        #startButton:disabled {
-            background: #666;
-            cursor: not-allowed;
-        }
+    #startButton:disabled {
+        background: #666;
+        cursor: not-allowed;
+    }
 
-        .status {
-            margin: 10px 0;
-            padding: 10px;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.1);
-        }
+    .status {
+        margin: 10px 0;
+        padding: 10px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.1);
+    }
 
-        .error {
-            background: rgba(255, 0, 0, 0.3);
-        }
+    .error {
+        background: rgba(255, 0, 0, 0.3);
+    }
 
-        .success {
-            background: rgba(0, 255, 0, 0.3);
-        }
+    .success {
+        background: rgba(0, 255, 0, 0.3);
+    }
 
-        #canvas {
-            display: block;
-            width: 100vw;
-            height: 100vh;
-        }
+    #canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+    }
 
-        .hand-ui {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            pointer-events: none;
-            transform: translate(-50%, -100%);
-            margin-top: -10px;
-        }
-    </style>
+    .hand-ui {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 12px;
+        pointer-events: none;
+        transform: translate(-50%, -100%);
+        margin-top: -10px;
+    }
+</style>
+```
+
 </head>
 <body>
     <div id="info">
-        <h2>WebXR MRつみきゲーム</h2>
-        <button id="startButton">MRセッション開始</button>
-        <div id="status" class="status">MRデバイスを確認中...</div>
+        <h2>WebXR VRつみきゲーム</h2>
+        <button id="startButton">VRセッション開始</button>
+        <div id="status" class="status">VRデバイスを確認中...</div>
         <div id="instructions">
-            <strong>操作方法（MRモード）:</strong><br>
+            <strong>操作方法（VRモード）:</strong><br>
             • ハンドトラッキング: つまみ動作でつみきを掴む<br>
             • コントローラー: トリガーボタンで選択<br>
             • 音声: "つみき" でつみき生成<br>
             • 音声: "リセット" でリセット<br>
-            • 現実の机や床に配置できます
+            • VR空間でつみきタワーを作ろう！
         </div>
     </div>
-    
-    <canvas id="canvas"></canvas>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-        class WebXRBlockGame {
-            constructor() {
-                this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-                this.renderer = new THREE.WebGLRenderer({ 
-                    canvas: document.getElementById('canvas'),
-                    antialias: true,
-                    alpha: true
-                });
-                
-                this.xrSession = null;
-                this.xrReferenceSpace = null;
-                this.controllers = [];
-                this.hands = [];
-                this.blocks = [];
-                this.selectedBlock = null;
-                this.isXRSupported = false;
-                
-                // 音声認識
-                this.speechRecognition = null;
-                this.isListening = false;
-                
-                // 空間マッピング用
-                this.planes = [];
-                this.anchors = [];
-                
-                // つみきボックス
-                this.spawnBox = null;
-                
-                this.blockTypes = [
-                    { name: '立方体', color: 0xff6b6b, size: [0.05, 0.05, 0.05] }, // MRスケール（メートル単位）
-                    { name: '直方体', color: 0x4ecdc4, size: [0.08, 0.03, 0.05] },
-                    { name: '細長', color: 0x45b7d1, size: [0.12, 0.03, 0.03] },
-                    { name: '平板', color: 0x96ceb4, size: [0.08, 0.02, 0.08] },
-                    { name: '高い', color: 0xffeaa7, size: [0.04, 0.1, 0.04] },
-                    { name: 'L字', color: 0xdda0dd, size: [0.06, 0.05, 0.05] }
-                ];
-                
-                this.init();
-            }
+```
+<canvas id="canvas"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    class WebXRBlockGame {
+        constructor() {
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            this.renderer = new THREE.WebGLRenderer({ 
+                canvas: document.getElementById('canvas'),
+                antialias: true,
+                alpha: true
+            });
             
-            async init() {
-                // WebXRサポート確認
-                await this.checkXRSupport();
-                
-                // レンダラーセットアップ
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.shadowMap.enabled = true;
-                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-                this.renderer.xr.enabled = true;
-                
-                // ライティング
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-                this.scene.add(ambientLight);
-                
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-                directionalLight.position.set(0.5, 1, 0.5);
-                directionalLight.castShadow = true;
-                directionalLight.shadow.mapSize.width = 1024;
-                directionalLight.shadow.mapSize.height = 1024;
-                this.scene.add(directionalLight);
-                
-                // つみき生成ボックス
-                this.createSpawnBox();
-                
-                // コントローラーセットアップ
-                this.setupControllers();
-                
-                // ハンドトラッキングセットアップ
-                this.setupHandTracking();
-                
-                // 音声認識セットアップ
-                this.setupSpeechRecognition();
-                
-                // UIイベント
-                document.getElementById('startButton').addEventListener('click', () => this.startXRSession());
-                
-                window.addEventListener('resize', () => this.onWindowResize());
-                
-                // アニメーションループ
-                this.renderer.setAnimationLoop(() => this.animate());
-            }
+            this.xrSession = null;
+            this.xrReferenceSpace = null;
+            this.controllers = [];
+            this.hands = [];
+            this.blocks = [];
+            this.selectedBlock = null;
+            this.isXRSupported = false;
             
-            async checkXRSupport() {
-                if ('xr' in navigator) {
-                    try {
-                        const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
-                        this.isXRSupported = isSupported;
-                        
-                        if (isSupported) {
-                            document.getElementById('status').textContent = 'MR対応デバイスが検出されました';
-                            document.getElementById('status').className = 'status success';
-                        } else {
-                            document.getElementById('status').textContent = 'MRモードは利用できません（WebXR AR未対応）';
-                            document.getElementById('status').className = 'status error';
-                        }
-                    } catch (error) {
-                        document.getElementById('status').textContent = 'WebXR確認エラー: ' + error.message;
+            // 音声認識
+            this.speechRecognition = null;
+            this.isListening = false;
+            
+            // 空間マッピング用
+            this.planes = [];
+            this.anchors = [];
+            
+            // つみきボックス
+            this.spawnBox = null;
+            
+            this.blockTypes = [
+                { name: '立方体', color: 0xff6b6b, size: [0.05, 0.05, 0.05] }, // MRスケール（メートル単位）
+                { name: '直方体', color: 0x4ecdc4, size: [0.08, 0.03, 0.05] },
+                { name: '細長', color: 0x45b7d1, size: [0.12, 0.03, 0.03] },
+                { name: '平板', color: 0x96ceb4, size: [0.08, 0.02, 0.08] },
+                { name: '高い', color: 0xffeaa7, size: [0.04, 0.1, 0.04] },
+                { name: 'L字', color: 0xdda0dd, size: [0.06, 0.05, 0.05] }
+            ];
+            
+            this.init();
+        }
+        
+        async init() {
+            // WebXRサポート確認
+            await this.checkXRSupport();
+            
+            // レンダラーセットアップ
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            this.renderer.xr.enabled = true;
+            
+            // ライティング
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            this.scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(0.5, 1, 0.5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 1024;
+            directionalLight.shadow.mapSize.height = 1024;
+            this.scene.add(directionalLight);
+            
+            // つみき生成ボックス
+            this.createSpawnBox();
+            
+            // コントローラーセットアップ
+            this.setupControllers();
+            
+            // ハンドトラッキングセットアップ
+            this.setupHandTracking();
+            
+            // 音声認識セットアップ
+            this.setupSpeechRecognition();
+            
+            // UIイベント
+            document.getElementById('startButton').addEventListener('click', () => this.startXRSession());
+            
+            window.addEventListener('resize', () => this.onWindowResize());
+            
+            // アニメーションループ
+            this.renderer.setAnimationLoop(() => this.animate());
+        }
+        
+        async checkXRSupport() {
+            if ('xr' in navigator) {
+                try {
+                    const isSupported = await navigator.xr.isSessionSupported('immersive-vr');
+                    this.isXRSupported = isSupported;
+                    
+                    if (isSupported) {
+                        document.getElementById('status').textContent = 'VR対応デバイスが検出されました';
+                        document.getElementById('status').className = 'status success';
+                    } else {
+                        document.getElementById('status').textContent = 'VRモードは利用できません（WebXR VR未対応）';
                         document.getElementById('status').className = 'status error';
                     }
-                } else {
-                    document.getElementById('status').textContent = 'このブラウザはWebXRに対応していません';
-                    document.getElementById('status').className = 'status error';
-                }
-            }
-            
-            async startXRSession() {
-                if (!this.isXRSupported) {
-                    alert('MRセッションを開始できません。WebXR対応デバイスが必要です。');
-                    return;
-                }
-                
-                try {
-                    document.getElementById('startButton').disabled = true;
-                    document.getElementById('status').textContent = 'MRセッションを開始しています...';
-                    
-                    // AR セッションを要求
-                    this.xrSession = await navigator.xr.requestSession('immersive-ar', {
-                        requiredFeatures: ['local', 'hand-tracking', 'plane-detection'],
-                        optionalFeatures: ['anchors', 'hit-test', 'dom-overlay'],
-                        domOverlay: { root: document.getElementById('info') }
-                    });
-                    
-                    // XRセッション設定
-                    await this.renderer.xr.setSession(this.xrSession);
-                    
-                    // 参照空間を取得
-                    this.xrReferenceSpace = await this.xrSession.requestReferenceSpace('local');
-                    
-                    // セッションイベント
-                    this.xrSession.addEventListener('end', () => this.onSessionEnd());
-                    
-                    document.getElementById('status').textContent = 'MRセッション開始！現実空間でつみきゲームを楽しんでください。';
-                    document.getElementById('status').className = 'status success';
-                    
-                    // 音声認識開始
-                    this.startSpeechRecognition();
-                    
                 } catch (error) {
-                    console.error('XRセッション開始エラー:', error);
-                    document.getElementById('status').textContent = 'MRセッション開始エラー: ' + error.message;
+                    document.getElementById('status').textContent = 'WebXR確認エラー: ' + error.message;
                     document.getElementById('status').className = 'status error';
-                    document.getElementById('startButton').disabled = false;
                 }
-            }
-            
-            createSpawnBox() {
-                const boxGeometry = new THREE.BoxGeometry(0.1, 0.075, 0.1);
-                const boxMaterial = new THREE.MeshLambertMaterial({ 
-                    color: 0x8b4513,
-                    transparent: true,
-                    opacity: 0.8
-                });
-                this.spawnBox = new THREE.Mesh(boxGeometry, boxMaterial);
-                this.spawnBox.position.set(0, 0, -0.3); // ユーザーの前方30cm
-                this.spawnBox.castShadow = true;
-                this.scene.add(this.spawnBox);
-                
-                // ボックスの蓋
-                const lidGeometry = new THREE.BoxGeometry(0.11, 0.005, 0.11);
-                const lidMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
-                this.lid = new THREE.Mesh(lidGeometry, lidMaterial);
-                this.lid.position.set(0, 0.04, -0.3);
-                this.scene.add(this.lid);
-                
-                // ボックスのラベル
-                this.createBoxLabel();
-            }
-            
-            createBoxLabel() {
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                canvas.width = 256;
-                canvas.height = 128;
-                
-                context.fillStyle = '#ffffff';
-                context.fillRect(0, 0, 256, 128);
-                context.fillStyle = '#000000';
-                context.font = '24px Arial';
-                context.textAlign = 'center';
-                context.fillText('つみき BOX', 128, 50);
-                context.font = '16px Arial';
-                context.fillText('つまんで開けよう！', 128, 80);
-                
-                const texture = new THREE.CanvasTexture(canvas);
-                const labelMaterial = new THREE.MeshBasicMaterial({ map: texture });
-                const labelGeometry = new THREE.PlaneGeometry(0.08, 0.04);
-                const label = new THREE.Mesh(labelGeometry, labelMaterial);
-                label.position.set(0, 0.05, -0.25);
-                this.scene.add(label);
-            }
-            
-            setupControllers() {
-                const controllerModelFactory = new THREE.XRControllerModelFactory();
-                
-                for (let i = 0; i < 2; i++) {
-                    // コントローラー
-                    const controller = this.renderer.xr.getController(i);
-                    controller.addEventListener('selectstart', (event) => this.onControllerSelectStart(event, i));
-                    controller.addEventListener('selectend', (event) => this.onControllerSelectEnd(event, i));
-                    controller.addEventListener('squeeze', (event) => this.onControllerSqueeze(event, i));
-                    this.scene.add(controller);
-                    
-                    // コントローラーモデル
-                    const controllerGrip = this.renderer.xr.getControllerGrip(i);
-                    controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
-                    this.scene.add(controllerGrip);
-                    
-                    // レーザーポインター
-                    const geometry = new THREE.BufferGeometry().setFromPoints([
-                        new THREE.Vector3(0, 0, 0),
-                        new THREE.Vector3(0, 0, -1)
-                    ]);
-                    const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0xff0000 }));
-                    line.name = 'line';
-                    line.scale.z = 0.1;
-                    controller.add(line);
-                    
-                    this.controllers.push({
-                        controller: controller,
-                        grip: controllerGrip,
-                        isSelecting: false
-                    });
-                }
-            }
-            
-            setupHandTracking() {
-                if ('XRHand' in window) {
-                    for (let i = 0; i < 2; i++) {
-                        const hand = this.renderer.xr.getHand(i);
-                        hand.userData.isSelecting = false;
-                        
-                        // ハンドモデル
-                        const handModel = new THREE.XRHandModelFactory().createHandModel(hand, 'mesh');
-                        hand.add(handModel);
-                        
-                        this.scene.add(hand);
-                        this.hands.push(hand);
-                    }
-                }
-            }
-            
-            setupSpeechRecognition() {
-                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-                    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    this.speechRecognition = new SpeechRecognition();
-                    this.speechRecognition.lang = 'ja-JP';
-                    this.speechRecognition.continuous = true;
-                    this.speechRecognition.interimResults = false;
-                    
-                    this.speechRecognition.onresult = (event) => {
-                        const command = event.results[event.results.length - 1][0].transcript.toLowerCase();
-                        this.processSpeechCommand(command);
-                    };
-                    
-                    this.speechRecognition.onerror = (event) => {
-                        console.warn('音声認識エラー:', event.error);
-                    };
-                }
-            }
-            
-            startSpeechRecognition() {
-                if (this.speechRecognition && !this.isListening) {
-                    this.speechRecognition.start();
-                    this.isListening = true;
-                }
-            }
-            
-            processSpeechCommand(command) {
-                console.log('音声コマンド:', command);
-                
-                if (command.includes('つみき') || command.includes('ブロック')) {
-                    this.spawnBlock();
-                } else if (command.includes('リセット') || command.includes('クリア')) {
-                    this.resetBlocks();
-                } else if (command.includes('大きい')) {
-                    this.spawnLargerBlock();
-                } else if (command.includes('小さい')) {
-                    this.spawnSmallerBlock();
-                }
-            }
-            
-            onControllerSelectStart(event, controllerIndex) {
-                const controller = this.controllers[controllerIndex];
-                controller.isSelecting = true;
-                
-                // ブロック選択
-                this.selectBlockWithRaycaster(controller.controller);
-            }
-            
-            onControllerSelectEnd(event, controllerIndex) {
-                const controller = this.controllers[controllerIndex];
-                controller.isSelecting = false;
-                
-                if (this.selectedBlock) {
-                    this.releaseSelectedBlock();
-                }
-            }
-            
-            onControllerSqueeze(event, controllerIndex) {
-                // スクイーズでつみき生成
-                this.spawnBlock();
-            }
-            
-            selectBlockWithRaycaster(controller) {
-                const tempMatrix = new THREE.Matrix4();
-                tempMatrix.identity().extractRotation(controller.matrixWorld);
-                
-                const raycaster = new THREE.Raycaster();
-                raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-                raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
-                
-                const intersects = raycaster.intersectObjects(this.blocks);
-                
-                if (intersects.length > 0) {
-                    this.selectedBlock = intersects[0].object;
-                    this.selectedBlock.material.emissive.setHex(0x444444);
-                    
-                    // 選択フィードバック（バイブレーション）
-                    if (controller.gamepad && controller.gamepad.hapticActuators) {
-                        controller.gamepad.hapticActuators[0].pulse(0.5, 100);
-                    }
-                }
-            }
-            
-            spawnBlock() {
-                const blockType = this.blockTypes[Math.floor(Math.random() * this.blockTypes.length)];
-                
-                const geometry = new THREE.BoxGeometry(blockType.size[0], blockType.size[1], blockType.size[2]);
-                const material = new THREE.MeshLambertMaterial({ color: blockType.color });
-                
-                const block = new THREE.Mesh(geometry, material);
-                
-                // ボックスから出現
-                block.position.copy(this.spawnBox.position);
-                block.position.y += 0.1 + Math.random() * 0.05;
-                block.position.x += (Math.random() - 0.5) * 0.02;
-                block.position.z += (Math.random() - 0.5) * 0.02;
-                
-                block.rotation.set(
-                    Math.random() * 0.2,
-                    Math.random() * Math.PI,
-                    Math.random() * 0.2
-                );
-                
-                block.castShadow = true;
-                block.receiveShadow = true;
-                block.userData = { 
-                    velocity: new THREE.Vector3(
-                        (Math.random() - 0.5) * 0.001,
-                        -0.0005,
-                        (Math.random() - 0.5) * 0.001
-                    ),
-                    size: blockType.size,
-                    isPhysicsEnabled: true
-                };
-                
-                this.scene.add(block);
-                this.blocks.push(block);
-                
-                // 蓋のアニメーション
-                this.animateLid();
-                
-                // 触覚フィードバック
-                this.triggerHapticFeedback();
-            }
-            
-            spawnLargerBlock() {
-                const blockType = {
-                    name: '大きいブロック',
-                    color: 0xff9999,
-                    size: [0.08, 0.08, 0.08]
-                };
-                this.spawnCustomBlock(blockType);
-            }
-            
-            spawnSmallerBlock() {
-                const blockType = {
-                    name: '小さいブロック',
-                    color: 0x99ff99,
-                    size: [0.02, 0.02, 0.02]
-                };
-                this.spawnCustomBlock(blockType);
-            }
-            
-            spawnCustomBlock(blockType) {
-                const geometry = new THREE.BoxGeometry(blockType.size[0], blockType.size[1], blockType.size[2]);
-                const material = new THREE.MeshLambertMaterial({ color: blockType.color });
-                
-                const block = new THREE.Mesh(geometry, material);
-                block.position.copy(this.spawnBox.position);
-                block.position.y += 0.1;
-                
-                block.castShadow = true;
-                block.receiveShadow = true;
-                block.userData = { 
-                    size: blockType.size,
-                    isPhysicsEnabled: true
-                };
-                
-                this.scene.add(block);
-                this.blocks.push(block);
-            }
-            
-            animateLid() {
-                const originalY = this.lid.position.y;
-                const targetY = originalY + 0.02;
-                
-                let startTime = null;
-                const duration = 500;
-                
-                const animate = (timestamp) => {
-                    if (!startTime) startTime = timestamp;
-                    const elapsed = timestamp - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-                    
-                    if (progress < 0.5) {
-                        this.lid.position.y = originalY + (targetY - originalY) * (progress * 2);
-                    } else {
-                        this.lid.position.y = targetY - (targetY - originalY) * ((progress - 0.5) * 2);
-                    }
-                    
-                    if (progress < 1) {
-                        requestAnimationFrame(animate);
-                    } else {
-                        this.lid.position.y = originalY;
-                    }
-                };
-                
-                requestAnimationFrame(animate);
-            }
-            
-            triggerHapticFeedback() {
-                // すべてのコントローラーに触覚フィードバック
-                this.controllers.forEach(controller => {
-                    if (controller.controller.gamepad && controller.controller.gamepad.hapticActuators) {
-                        controller.controller.gamepad.hapticActuators[0].pulse(0.3, 200);
-                    }
-                });
-            }
-            
-            updateHandTracking() {
-                this.hands.forEach((hand, index) => {
-                    if (hand.joints && hand.joints['index-finger-tip'] && hand.joints['thumb-tip']) {
-                        const indexTip = hand.joints['index-finger-tip'];
-                        const thumbTip = hand.joints['thumb-tip'];
-                        
-                        if (indexTip.visible && thumbTip.visible) {
-                            const distance = indexTip.position.distanceTo(thumbTip.position);
-                            
-                            // つまみ動作の検出
-                            if (distance < 0.02 && !hand.userData.isSelecting) {
-                                hand.userData.isSelecting = true;
-                                this.selectBlockWithHand(hand, indexTip.position);
-                            } else if (distance > 0.03 && hand.userData.isSelecting) {
-                                hand.userData.isSelecting = false;
-                                this.releaseSelectedBlock();
-                            }
-                            
-                            // 選択中のブロックを手の位置に追従
-                            if (this.selectedBlock && hand.userData.isSelecting) {
-                                const midPoint = new THREE.Vector3()
-                                    .addVectors(indexTip.position, thumbTip.position)
-                                    .multiplyScalar(0.5);
-                                this.selectedBlock.position.copy(midPoint);
-                            }
-                        }
-                    }
-                });
-            }
-            
-            selectBlockWithHand(hand, position) {
-                let closestBlock = null;
-                let closestDistance = Infinity;
-                
-                this.blocks.forEach(block => {
-                    const distance = block.position.distanceTo(position);
-                    if (distance < closestDistance && distance < 0.05) {
-                        closestDistance = distance;
-                        closestBlock = block;
-                    }
-                });
-                
-                if (closestBlock) {
-                    this.selectedBlock = closestBlock;
-                    this.selectedBlock.material.emissive.setHex(0x444444);
-                }
-            }
-            
-            releaseSelectedBlock() {
-                if (this.selectedBlock) {
-                    this.selectedBlock.material.emissive.setHex(0x000000);
-                    this.selectedBlock = null;
-                }
-            }
-            
-            // 簡易物理演算
-            updatePhysics() {
-                this.blocks.forEach(block => {
-                    if (block === this.selectedBlock) return;
-                    if (!block.userData.isPhysicsEnabled) return;
-                    
-                    const velocity = block.userData.velocity;
-                    if (!velocity) return;
-                    
-                    // 重力適用
-                    velocity.y -= 0.0001;
-                    
-                    // 位置更新
-                    block.position.add(velocity);
-                    
-                    // 床との衝突（簡易）
-                    if (block.position.y < block.userData.size[1] / 2) {
-                        block.position.y = block.userData.size[1] / 2;
-                        velocity.y = 0;
-                        velocity.multiplyScalar(0.9); // 摩擦
-                    }
-                });
-            }
-            
-            resetBlocks() {
-                this.blocks.forEach(block => {
-                    this.scene.remove(block);
-                });
-                this.blocks = [];
-                this.selectedBlock = null;
-                
-                // 触覚フィードバック
-                this.triggerHapticFeedback();
-            }
-            
-            animate() {
-                if (this.xrSession) {
-                    // XRモード時の更新
-                    this.updateHandTracking();
-                    this.updatePhysics();
-                    
-                    // 選択中のブロックをコントローラーに追従
-                    if (this.selectedBlock) {
-                        this.controllers.forEach(controller => {
-                            if (controller.isSelecting) {
-                                this.selectedBlock.position.setFromMatrixPosition(controller.controller.matrixWorld);
-                                this.selectedBlock.position.z -= 0.1; // 少し前方に配置
-                            }
-                        });
-                    }
-                }
-                
-                this.renderer.render(this.scene, this.camera);
-            }
-            
-            onSessionEnd() {
-                this.xrSession = null;
-                document.getElementById('startButton').disabled = false;
-                document.getElementById('status').textContent = 'MRセッションが終了しました';
-                document.getElementById('status').className = 'status';
-                
-                if (this.speechRecognition && this.isListening) {
-                    this.speechRecognition.stop();
-                    this.isListening = false;
-                }
-            }
-            
-            onWindowResize() {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            } else {
+                document.getElementById('status').textContent = 'このブラウザはWebXRに対応していません';
+                document.getElementById('status').className = 'status error';
             }
         }
         
-        // ゲーム開始
-        window.addEventListener('load', () => {
-            new WebXRBlockGame();
-        });
-    </script>
+        async startXRSession() {
+            if (!this.isXRSupported) {
+                alert('VRセッションを開始できません。WebXR対応デバイスが必要です。');
+                return;
+            }
+            
+            try {
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('status').textContent = 'VRセッションを開始しています...';
+                
+                // VR セッションを要求
+                this.xrSession = await navigator.xr.requestSession('immersive-vr', {
+                    requiredFeatures: ['local', 'hand-tracking'],
+                    optionalFeatures: ['local-floor']
+                });
+                
+                // XRセッション設定
+                await this.renderer.xr.setSession(this.xrSession);
+                
+                // 参照空間を取得
+                this.xrReferenceSpace = await this.xrSession.requestReferenceSpace('local');
+                
+                // セッションイベント
+                this.xrSession.addEventListener('end', () => this.onSessionEnd());
+                
+                document.getElementById('status').textContent = 'VRセッション開始！VR空間でつみきゲームを楽しんでください。';
+                document.getElementById('status').className = 'status success';
+                
+                // 音声認識開始
+                this.startSpeechRecognition();
+                
+            } catch (error) {
+                console.error('XRセッション開始エラー:', error);
+                document.getElementById('status').textContent = 'VRセッション開始エラー: ' + error.message;
+                document.getElementById('status').className = 'status error';
+                document.getElementById('startButton').disabled = false;
+            }
+        }
+        
+        createSpawnBox() {
+            const boxGeometry = new THREE.BoxGeometry(0.1, 0.075, 0.1);
+            const boxMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x8b4513,
+                transparent: true,
+                opacity: 0.8
+            });
+            this.spawnBox = new THREE.Mesh(boxGeometry, boxMaterial);
+            this.spawnBox.position.set(0, 0, -0.3); // ユーザーの前方30cm
+            this.spawnBox.castShadow = true;
+            this.scene.add(this.spawnBox);
+            
+            // ボックスの蓋
+            const lidGeometry = new THREE.BoxGeometry(0.11, 0.005, 0.11);
+            const lidMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
+            this.lid = new THREE.Mesh(lidGeometry, lidMaterial);
+            this.lid.position.set(0, 0.04, -0.3);
+            this.scene.add(this.lid);
+            
+            // ボックスのラベル
+            this.createBoxLabel();
+        }
+        
+        createBoxLabel() {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 128;
+            
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, 256, 128);
+            context.fillStyle = '#000000';
+            context.font = '24px Arial';
+            context.textAlign = 'center';
+            context.fillText('つみき BOX', 128, 50);
+            context.font = '16px Arial';
+            context.fillText('つまんで開けよう！', 128, 80);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const labelMaterial = new THREE.MeshBasicMaterial({ map: texture });
+            const labelGeometry = new THREE.PlaneGeometry(0.08, 0.04);
+            const label = new THREE.Mesh(labelGeometry, labelMaterial);
+            label.position.set(0, 0.05, -0.25);
+            this.scene.add(label);
+        }
+        
+        setupControllers() {
+            const controllerModelFactory = new THREE.XRControllerModelFactory();
+            
+            for (let i = 0; i < 2; i++) {
+                // コントローラー
+                const controller = this.renderer.xr.getController(i);
+                controller.addEventListener('selectstart', (event) => this.onControllerSelectStart(event, i));
+                controller.addEventListener('selectend', (event) => this.onControllerSelectEnd(event, i));
+                controller.addEventListener('squeeze', (event) => this.onControllerSqueeze(event, i));
+                this.scene.add(controller);
+                
+                // コントローラーモデル
+                const controllerGrip = this.renderer.xr.getControllerGrip(i);
+                controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
+                this.scene.add(controllerGrip);
+                
+                // レーザーポインター
+                const geometry = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(0, 0, 0),
+                    new THREE.Vector3(0, 0, -1)
+                ]);
+                const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0xff0000 }));
+                line.name = 'line';
+                line.scale.z = 0.1;
+                controller.add(line);
+                
+                this.controllers.push({
+                    controller: controller,
+                    grip: controllerGrip,
+                    isSelecting: false
+                });
+            }
+        }
+        
+        setupHandTracking() {
+            if ('XRHand' in window) {
+                for (let i = 0; i < 2; i++) {
+                    const hand = this.renderer.xr.getHand(i);
+                    hand.userData.isSelecting = false;
+                    
+                    // ハンドモデル
+                    const handModel = new THREE.XRHandModelFactory().createHandModel(hand, 'mesh');
+                    hand.add(handModel);
+                    
+                    this.scene.add(hand);
+                    this.hands.push(hand);
+                }
+            }
+        }
+        
+        setupSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                this.speechRecognition = new SpeechRecognition();
+                this.speechRecognition.lang = 'ja-JP';
+                this.speechRecognition.continuous = true;
+                this.speechRecognition.interimResults = false;
+                
+                this.speechRecognition.onresult = (event) => {
+                    const command = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                    this.processSpeechCommand(command);
+                };
+                
+                this.speechRecognition.onerror = (event) => {
+                    console.warn('音声認識エラー:', event.error);
+                };
+            }
+        }
+        
+        startSpeechRecognition() {
+            if (this.speechRecognition && !this.isListening) {
+                this.speechRecognition.start();
+                this.isListening = true;
+            }
+        }
+        
+        processSpeechCommand(command) {
+            console.log('音声コマンド:', command);
+            
+            if (command.includes('つみき') || command.includes('ブロック')) {
+                this.spawnBlock();
+            } else if (command.includes('リセット') || command.includes('クリア')) {
+                this.resetBlocks();
+            } else if (command.includes('大きい')) {
+                this.spawnLargerBlock();
+            } else if (command.includes('小さい')) {
+                this.spawnSmallerBlock();
+            }
+        }
+        
+        onControllerSelectStart(event, controllerIndex) {
+            const controller = this.controllers[controllerIndex];
+            controller.isSelecting = true;
+            
+            // ブロック選択
+            this.selectBlockWithRaycaster(controller.controller);
+        }
+        
+        onControllerSelectEnd(event, controllerIndex) {
+            const controller = this.controllers[controllerIndex];
+            controller.isSelecting = false;
+            
+            if (this.selectedBlock) {
+                this.releaseSelectedBlock();
+            }
+        }
+        
+        onControllerSqueeze(event, controllerIndex) {
+            // スクイーズでつみき生成
+            this.spawnBlock();
+        }
+        
+        selectBlockWithRaycaster(controller) {
+            const tempMatrix = new THREE.Matrix4();
+            tempMatrix.identity().extractRotation(controller.matrixWorld);
+            
+            const raycaster = new THREE.Raycaster();
+            raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+            raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+            
+            const intersects = raycaster.intersectObjects(this.blocks);
+            
+            if (intersects.length > 0) {
+                this.selectedBlock = intersects[0].object;
+                this.selectedBlock.material.emissive.setHex(0x444444);
+                
+                // 選択フィードバック（バイブレーション）
+                if (controller.gamepad && controller.gamepad.hapticActuators) {
+                    controller.gamepad.hapticActuators[0].pulse(0.5, 100);
+                }
+            }
+        }
+        
+        spawnBlock() {
+            const blockType = this.blockTypes[Math.floor(Math.random() * this.blockTypes.length)];
+            
+            const geometry = new THREE.BoxGeometry(blockType.size[0], blockType.size[1], blockType.size[2]);
+            const material = new THREE.MeshLambertMaterial({ color: blockType.color });
+            
+            const block = new THREE.Mesh(geometry, material);
+            
+            // ボックスから出現
+            block.position.copy(this.spawnBox.position);
+            block.position.y += 0.1 + Math.random() * 0.05;
+            block.position.x += (Math.random() - 0.5) * 0.02;
+            block.position.z += (Math.random() - 0.5) * 0.02;
+            
+            block.rotation.set(
+                Math.random() * 0.2,
+                Math.random() * Math.PI,
+                Math.random() * 0.2
+            );
+            
+            block.castShadow = true;
+            block.receiveShadow = true;
+            block.userData = { 
+                velocity: new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.001,
+                    -0.0005,
+                    (Math.random() - 0.5) * 0.001
+                ),
+                size: blockType.size,
+                isPhysicsEnabled: true
+            };
+            
+            this.scene.add(block);
+            this.blocks.push(block);
+            
+            // 蓋のアニメーション
+            this.animateLid();
+            
+            // 触覚フィードバック
+            this.triggerHapticFeedback();
+        }
+        
+        spawnLargerBlock() {
+            const blockType = {
+                name: '大きいブロック',
+                color: 0xff9999,
+                size: [0.08, 0.08, 0.08]
+            };
+            this.spawnCustomBlock(blockType);
+        }
+        
+        spawnSmallerBlock() {
+            const blockType = {
+                name: '小さいブロック',
+                color: 0x99ff99,
+                size: [0.02, 0.02, 0.02]
+            };
+            this.spawnCustomBlock(blockType);
+        }
+        
+        spawnCustomBlock(blockType) {
+            const geometry = new THREE.BoxGeometry(blockType.size[0], blockType.size[1], blockType.size[2]);
+            const material = new THREE.MeshLambertMaterial({ color: blockType.color });
+            
+            const block = new THREE.Mesh(geometry, material);
+            block.position.copy(this.spawnBox.position);
+            block.position.y += 0.1;
+            
+            block.castShadow = true;
+            block.receiveShadow = true;
+            block.userData = { 
+                size: blockType.size,
+                isPhysicsEnabled: true
+            };
+            
+            this.scene.add(block);
+            this.blocks.push(block);
+        }
+        
+        animateLid() {
+            const originalY = this.lid.position.y;
+            const targetY = originalY + 0.02;
+            
+            let startTime = null;
+            const duration = 500;
+            
+            const animate = (timestamp) => {
+                if (!startTime) startTime = timestamp;
+                const elapsed = timestamp - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                if (progress < 0.5) {
+                    this.lid.position.y = originalY + (targetY - originalY) * (progress * 2);
+                } else {
+                    this.lid.position.y = targetY - (targetY - originalY) * ((progress - 0.5) * 2);
+                }
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    this.lid.position.y = originalY;
+                }
+            };
+            
+            requestAnimationFrame(animate);
+        }
+        
+        triggerHapticFeedback() {
+            // すべてのコントローラーに触覚フィードバック
+            this.controllers.forEach(controller => {
+                if (controller.controller.gamepad && controller.controller.gamepad.hapticActuators) {
+                    controller.controller.gamepad.hapticActuators[0].pulse(0.3, 200);
+                }
+            });
+        }
+        
+        updateHandTracking() {
+            this.hands.forEach((hand, index) => {
+                if (hand.joints && hand.joints['index-finger-tip'] && hand.joints['thumb-tip']) {
+                    const indexTip = hand.joints['index-finger-tip'];
+                    const thumbTip = hand.joints['thumb-tip'];
+                    
+                    if (indexTip.visible && thumbTip.visible) {
+                        const distance = indexTip.position.distanceTo(thumbTip.position);
+                        
+                        // つまみ動作の検出
+                        if (distance < 0.02 && !hand.userData.isSelecting) {
+                            hand.userData.isSelecting = true;
+                            this.selectBlockWithHand(hand, indexTip.position);
+                        } else if (distance > 0.03 && hand.userData.isSelecting) {
+                            hand.userData.isSelecting = false;
+                            this.releaseSelectedBlock();
+                        }
+                        
+                        // 選択中のブロックを手の位置に追従
+                        if (this.selectedBlock && hand.userData.isSelecting) {
+                            const midPoint = new THREE.Vector3()
+                                .addVectors(indexTip.position, thumbTip.position)
+                                .multiplyScalar(0.5);
+                            this.selectedBlock.position.copy(midPoint);
+                        }
+                    }
+                }
+            });
+        }
+        
+        selectBlockWithHand(hand, position) {
+            let closestBlock = null;
+            let closestDistance = Infinity;
+            
+            this.blocks.forEach(block => {
+                const distance = block.position.distanceTo(position);
+                if (distance < closestDistance && distance < 0.05) {
+                    closestDistance = distance;
+                    closestBlock = block;
+                }
+            });
+            
+            if (closestBlock) {
+                this.selectedBlock = closestBlock;
+                this.selectedBlock.material.emissive.setHex(0x444444);
+            }
+        }
+        
+        releaseSelectedBlock() {
+            if (this.selectedBlock) {
+                this.selectedBlock.material.emissive.setHex(0x000000);
+                this.selectedBlock = null;
+            }
+        }
+        
+        // 簡易物理演算
+        updatePhysics() {
+            this.blocks.forEach(block => {
+                if (block === this.selectedBlock) return;
+                if (!block.userData.isPhysicsEnabled) return;
+                
+                const velocity = block.userData.velocity;
+                if (!velocity) return;
+                
+                // 重力適用
+                velocity.y -= 0.0001;
+                
+                // 位置更新
+                block.position.add(velocity);
+                
+                // 床との衝突（簡易）
+                if (block.position.y < block.userData.size[1] / 2) {
+                    block.position.y = block.userData.size[1] / 2;
+                    velocity.y = 0;
+                    velocity.multiplyScalar(0.9); // 摩擦
+                }
+            });
+        }
+        
+        resetBlocks() {
+            this.blocks.forEach(block => {
+                this.scene.remove(block);
+            });
+            this.blocks = [];
+            this.selectedBlock = null;
+            
+            // 触覚フィードバック
+            this.triggerHapticFeedback();
+        }
+        
+        animate() {
+            if (this.xrSession) {
+                // XRモード時の更新
+                this.updateHandTracking();
+                this.updatePhysics();
+                
+                // 選択中のブロックをコントローラーに追従
+                if (this.selectedBlock) {
+                    this.controllers.forEach(controller => {
+                        if (controller.isSelecting) {
+                            this.selectedBlock.position.setFromMatrixPosition(controller.controller.matrixWorld);
+                            this.selectedBlock.position.z -= 0.1; // 少し前方に配置
+                        }
+                    });
+                }
+            }
+            
+            this.renderer.render(this.scene, this.camera);
+        }
+        
+        onSessionEnd() {
+            this.xrSession = null;
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('status').textContent = 'VRセッションが終了しました';
+            document.getElementById('status').className = 'status';
+            
+            if (this.speechRecognition && this.isListening) {
+                this.speechRecognition.stop();
+                this.isListening = false;
+            }
+        }
+        
+        onWindowResize() {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    }
+    
+    // ゲーム開始
+    window.addEventListener('load', () => {
+        new WebXRBlockGame();
+    });
+</script>
+```
+
 </body>
 </html>
