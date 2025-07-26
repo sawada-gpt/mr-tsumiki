@@ -51,6 +51,7 @@
     #startButton:disabled {
         background: #666;
         cursor: not-allowed;
+        opacity: 0.5;
     }
 
     .status {
@@ -195,27 +196,39 @@
         async checkXRSupport() {
             if ('xr' in navigator) {
                 try {
+                    console.log('WebXR API検出中...');
                     const isSupported = await navigator.xr.isSessionSupported('immersive-vr');
                     this.isXRSupported = isSupported;
+                    
+                    console.log('WebXR VRサポート:', isSupported);
                     
                     if (isSupported) {
                         document.getElementById('status').textContent = 'VR対応デバイスが検出されました';
                         document.getElementById('status').className = 'status success';
+                        document.getElementById('startButton').disabled = false;
                     } else {
                         document.getElementById('status').textContent = 'VRモードは利用できません（WebXR VR未対応）';
                         document.getElementById('status').className = 'status error';
+                        document.getElementById('startButton').disabled = true;
                     }
                 } catch (error) {
+                    console.error('WebXR確認エラー:', error);
                     document.getElementById('status').textContent = 'WebXR確認エラー: ' + error.message;
                     document.getElementById('status').className = 'status error';
+                    document.getElementById('startButton').disabled = true;
                 }
             } else {
+                console.log('WebXR API が利用できません');
                 document.getElementById('status').textContent = 'このブラウザはWebXRに対応していません';
                 document.getElementById('status').className = 'status error';
+                document.getElementById('startButton').disabled = true;
             }
         }
         
         async startXRSession() {
+            console.log('VRセッション開始を試行中...');
+            console.log('isXRSupported:', this.isXRSupported);
+            
             if (!this.isXRSupported) {
                 alert('VRセッションを開始できません。WebXR対応デバイスが必要です。');
                 return;
@@ -225,11 +238,15 @@
                 document.getElementById('startButton').disabled = true;
                 document.getElementById('status').textContent = 'VRセッションを開始しています...';
                 
+                console.log('navigator.xr.requestSession実行中...');
+                
                 // VR セッションを要求
                 this.xrSession = await navigator.xr.requestSession('immersive-vr', {
-                    requiredFeatures: ['local', 'hand-tracking'],
-                    optionalFeatures: ['local-floor']
+                    requiredFeatures: ['local'],
+                    optionalFeatures: ['local-floor', 'hand-tracking']
                 });
+                
+                console.log('VRセッション取得成功:', this.xrSession);
                 
                 // XRセッション設定
                 await this.renderer.xr.setSession(this.xrSession);
